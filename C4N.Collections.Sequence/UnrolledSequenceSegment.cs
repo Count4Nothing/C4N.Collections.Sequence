@@ -1,12 +1,11 @@
-﻿namespace C4N.Collections.Sequence;
+﻿using System;
 
-public class UnrolledSequenceSegment<T>
+namespace C4N.Collections.Sequence;
+
+public abstract class UnrolledSequenceSegment<T>
 {
     private UnrolledSequenceSegment<T>? next;
-
-    public int Length => this.Array.Length;
-
-    internal UnrolledSequenceSegment<T>? Next
+    public UnrolledSequenceSegment<T>? Next
     {
         get => this.next;
         set
@@ -16,16 +15,24 @@ public class UnrolledSequenceSegment<T>
             value.TotalIndex = this.TotalIndex + this.Length;
         }
     }
-    public long TotalIndex { get; private set; }
+    public long TotalIndex { get; protected set; }
+    public abstract int Length { get; }
+    public abstract Span<T> GetBuffer();
+    public abstract Memory<T> GetBuffer(int start, int length);
+}
 
+public class ArrayUnrolledSequenceSegment<T> : UnrolledSequenceSegment<T>
+{
     public T[] Array { get; }
+    public override int Length => this.Array.Length;
+    public override Memory<T> GetBuffer(int start, int length) => this.Array.AsMemory(start, length);
+    public override Span<T> GetBuffer() => this.Array;
 
-    public UnrolledSequenceSegment(T[] array)
+    public ArrayUnrolledSequenceSegment(T[] array)
     {
         this.Array = array;
     }
-    public UnrolledSequenceSegment(int capacity)
-    {
-        this.Array = new T[capacity];
-    }
+    public ArrayUnrolledSequenceSegment(int length) 
+        : this(new T[length])
+    { }
 }

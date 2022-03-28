@@ -20,7 +20,7 @@ public readonly struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<T>>
         UnrolledSequenceSegment<T>? segment;
         int from, to;
 
-        public ReadOnlyMemory<T> Current => this.segment!.Array.AsMemory(this.from, this.to - this.from);
+        public ReadOnlyMemory<T> Current => this.segment!.GetBuffer(this.from, this.to - this.from);
         object IEnumerator.Current => this.Current;
 
         public bool MoveNext()

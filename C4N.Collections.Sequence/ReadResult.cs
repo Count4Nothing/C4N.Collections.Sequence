@@ -1,13 +1,13 @@
 ﻿namespace C4N.Collections.Sequence;
 
-public struct ReadResult
+public struct ReadResult<T>
 {
-    public ReadResult(UnrolledSequence<char> buffer, bool completed)
+    public ReadResult(UnrolledSequence<T> buffer, bool completed)
     {
         this.Buffer = buffer;
         this.IsCompleted = completed;
     }
 
-    public UnrolledSequence<char> Buffer { get; }
+    public UnrolledSequence<T> Buffer { get; }
     public bool IsCompleted { get; }
 }

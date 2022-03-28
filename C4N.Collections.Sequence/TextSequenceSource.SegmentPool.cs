@@ -1,6 +1,6 @@
 ﻿namespace C4N.Collections.Sequence;
 
-public partial class TextPipeReader
+public partial class TextSequenceSource
 {
     struct SegmentPool
     {
@@ -11,7 +11,7 @@ public partial class TextPipeReader
             this._freeList = null;
         }
 
-        UnrolledSequenceSegment<char>? _freeList;
+        ArrayUnrolledSequenceSegment<char>? _freeList;
 
         public int UnitMin { get; }
         public int UnitMax { get; }
@@ -23,15 +23,15 @@ public partial class TextPipeReader
             return size;
         }
 
-        public UnrolledSequenceSegment<char> Rent(int min)
+        public ArrayUnrolledSequenceSegment<char> Rent(int min)
         {
             var head = this._freeList;
-            head ??= new UnrolledSequenceSegment<char>(this.CalcCapacity(min));
-            this._freeList = head.Next;
+            head ??= new ArrayUnrolledSequenceSegment<char>(this.CalcCapacity(min));
+            this._freeList = head.Next as ArrayUnrolledSequenceSegment<char>;
             return head;
         }
 
-        public void Return(UnrolledSequenceSegment<char> segment)
+        public void Return(ArrayUnrolledSequenceSegment<char> segment)
         {
             segment.Next = this._freeList;
             this._freeList = segment;

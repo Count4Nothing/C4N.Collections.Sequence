@@ -3,12 +3,12 @@ using System.IO;
 
 namespace C4N.Collections.Sequence;
 
-public sealed partial class TextPipeReader : IDisposable
+public sealed partial class TextSequenceSource : UnrolledSequenceSource<char>
 {
     static int DefaultUnitMin { get; } = 4096;
     static int DefaultUnitMax { get; } = 42000;
 
-    public TextPipeReader(TextReader reader)
+    public TextSequenceSource(TextReader reader)
     {
         this._reader = reader;
         this._pool = new(DefaultUnitMin, DefaultUnitMax);
@@ -18,9 +18,9 @@ public sealed partial class TextPipeReader : IDisposable
 
     readonly TextReader _reader;
     SegmentPool _pool;
-    UnrolledSequenceSegment<char>? _startSegment;
+    ArrayUnrolledSequenceSegment<char>? _startSegment;
     int _startInteger;
-    UnrolledSequenceSegment<char>? _endSegment;
+    ArrayUnrolledSequenceSegment<char>? _endSegment;
     int _endInteger;
 
     long Buffered
@@ -36,9 +36,9 @@ public sealed partial class TextPipeReader : IDisposable
     }
     SequencePosition StartPosition => new(this._startSegment, this._startInteger);
     SequencePosition EndPosition => new(this._endSegment, this._endInteger);
-    bool IsEnd => this._endSegment?.Array.Length > this._endInteger;
+    bool IsEnd => this._endSegment?.Length > this._endInteger;
 
-    ReadResult ReadBuffer() => new(new(this.StartPosition, this.EndPosition), this.IsEnd);
+    ReadResult<char> ReadBuffer() => new(new(this.StartPosition, this.EndPosition), this.IsEnd);
     void LoadBuffer(int sizeHint)
     {
         if (this.IsEnd) return;
@@ -63,9 +63,8 @@ public sealed partial class TextPipeReader : IDisposable
 
         while (true)
         {
-            var array = endSegment.Array;
-            var capacity = array.Length - endIndex;
-            var written = reader.Read(array, endIndex, capacity);
+            var capacity = endSegment.Length - endIndex;
+            var written = reader.Read(endSegment.Array, endIndex, capacity);
             endIndex += Math.Max(0, written);
             if (written < capacity) break;
             sizeHint -= written;
@@ -83,13 +82,13 @@ public sealed partial class TextPipeReader : IDisposable
     }
 
 
-    public ReadResult Read(int sizeHint)
+    public override ReadResult<char> Read(int sizeHint)
     {
         this.LoadBuffer(sizeHint);
         return this.ReadBuffer();
     }
-    public ReadResult Read() => this.Read(0);
-    public void Advance(SequencePosition consumed)
+    public override ReadResult<char> Read() => this.Read(0);
+    public override void Advance(SequencePosition consumed)
     {
         var segment = this._startSegment;
         var startSegment = consumed.GetObject() as UnrolledSequenceSegment<char>;
@@ -100,14 +99,14 @@ public sealed partial class TextPipeReader : IDisposable
             if (segment is null) ThrowHelper.ThrowArgument($"{nameof(consumed)} is invalid");
             var next = segment!.Next;
             this._pool.Return(segment);
-            segment = next;
+            segment = next as ArrayUnrolledSequenceSegment<char>;
         }
 
-        this._startSegment = startSegment;
+        this._startSegment = startSegment as ArrayUnrolledSequenceSegment<char>;
         this._startInteger = startInteger;
     }
 
-    public void Advance(long consumed)
+    public override void Advance(long consumed)
     {
         var segment = this._startSegment;
         var index = this._startInteger;
@@ -128,7 +127,7 @@ public sealed partial class TextPipeReader : IDisposable
                 break;
             }
             consumed -= capacity;
-            segment = segment.Next;
+            segment = segment.Next as ArrayUnrolledSequenceSegment<char>;
             index = 0;
         }
 
@@ -136,5 +135,5 @@ public sealed partial class TextPipeReader : IDisposable
         this._startInteger = index;
     }
 
-    public void Dispose() => this._reader.Dispose();
+    public override void Dispose() => this._reader.Dispose();
 }
