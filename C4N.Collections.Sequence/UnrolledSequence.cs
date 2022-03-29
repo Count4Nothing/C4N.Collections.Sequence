@@ -54,6 +54,7 @@ public readonly struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<T>>
     public SequencePosition Start => new(this._startSegment, this._startInteger);//inclusive
     public SequencePosition End => new(this._endSegment, this._endInteger);//exclusive
     public bool IsEmpty => this._startSegment == this._endSegment && this._startInteger == this._endInteger;
+    public long Length => (this._endSegment.TotalIndex - this._startSegment.TotalIndex) + (this._endInteger - this._startInteger);
 
     public UnrolledSequence<T> Slice(int index)
     {
