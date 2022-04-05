@@ -53,17 +53,16 @@ public sealed partial class TextSequenceSource : UnrolledSequenceSource<char>
         if (sizeHint <= buffered) return;
         sizeHint -= (int)buffered;
 
-        if ((startSegment, endSegment) is (null, _) or (_, null))//when initial load
+        if (startSegment is null)//when initial load
         {
             startSegment = endSegment = this._pool.Rent(sizeHint);
             startIndex = endIndex = 0;
         }
-
         var reader = this._reader;
 
         while (true)
         {
-            var capacity = endSegment.Length - endIndex;
+            var capacity = endSegment!.Length - endIndex;
             var written = reader.Read(endSegment.Array, endIndex, capacity);
             endIndex += Math.Max(0, written);
             if (written < capacity) break;
@@ -87,23 +86,22 @@ public sealed partial class TextSequenceSource : UnrolledSequenceSource<char>
         this.LoadBuffer(sizeHint);
         return this.ReadBuffer();
     }
-    public override ReadResult<char> Read() => this.Read(0);
     public override void Advance(SequencePosition consumed)
     {
-        var segment = this._startSegment;
-        var startSegment = consumed.GetObject() as UnrolledSequenceSegment<char>;
-        var startInteger = consumed.GetInteger();
+        var startSegment = this._startSegment;
+        var consumedSegment = consumed.GetObject() as UnrolledSequenceSegment<char>;
+        var consumedInteger = consumed.GetInteger();
 
-        while (segment != startSegment)
+        while (startSegment != consumedSegment)
         {
-            if (segment is null) ThrowHelper.ThrowArgument($"{nameof(consumed)} is invalid");
-            var next = segment!.Next;
-            this._pool.Return(segment);
-            segment = next as ArrayUnrolledSequenceSegment<char>;
+            if (startSegment is null) ThrowHelper.ThrowArgument($"{nameof(consumed)} is invalid");
+            var next = startSegment!.Next;
+            this._pool.Return(startSegment);
+            startSegment = next as ArrayUnrolledSequenceSegment<char>;
         }
 
-        this._startSegment = startSegment as ArrayUnrolledSequenceSegment<char>;
-        this._startInteger = startInteger;
+        this._startSegment = consumedSegment as ArrayUnrolledSequenceSegment<char>;
+        this._startInteger = consumedInteger;
     }
 
     public override void Advance(long consumed)

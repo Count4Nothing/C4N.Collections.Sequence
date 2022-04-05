@@ -6,7 +6,7 @@
 		<Nullable>enable</Nullable>
 		<Company>C4N</Company>
 		<Authors>C4N</Authors>
-		<Version>0.1.0</Version>
+		<Version>0.2.0</Version>
 		<Description>unrolled sequence implementation for high performance IO</Description>
 	</PropertyGroup>
 

@@ -18,14 +18,14 @@ public abstract class UnrolledSequenceSegment<T>
     public long TotalIndex { get; protected set; }
     public abstract int Length { get; }
     public abstract Span<T> GetBuffer();
-    public abstract Memory<T> GetBuffer(int start, int length);
+    public abstract Memory<T> GetMemory(int start, int length);
 }
 
 public class ArrayUnrolledSequenceSegment<T> : UnrolledSequenceSegment<T>
 {
     public T[] Array { get; }
     public override int Length => this.Array.Length;
-    public override Memory<T> GetBuffer(int start, int length) => this.Array.AsMemory(start, length);
+    public override Memory<T> GetMemory(int start, int length) => this.Array.AsMemory(start, length);
     public override Span<T> GetBuffer() => this.Array;
 
     public ArrayUnrolledSequenceSegment(T[] array)
