@@ -78,11 +78,10 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
     public SequencePosition GetPosition(long position, SequencePosition origin)
     {
         var segment = origin.GetObject() as UnrolledSequenceSegment<T>;
-        var index = position + origin.GetInteger();
         if (segment is null) Throw.NullReference(nameof(position));
         do
         {
-            var delta = index - segment!.TotalIndex;
+            var delta = position - segment!.TotalIndex;
             if (delta < segment.Length) return new(segment, (int)delta);
             segment = segment.Next;
         }
@@ -91,6 +90,7 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
     }
 
     public BufferEnumerable EnumerateBuffer() => new(this);
+    public IndexedEnumerable EnumerateIndexed() => new(this);
     public Enumerator GetEnumerator() => new(this);
 
     IEnumerator<ReadOnlyMemory<T>> IEnumerable<ReadOnlyMemory<T>>.GetEnumerator() => this.GetEnumerator();
