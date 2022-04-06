@@ -26,9 +26,9 @@ public readonly partial struct UnrolledSequence<T>
         public bool MoveNext()
         {
             (this.segment, this.from) = this.segment is null 
-                                        ? (this.sequence._startSegment, this.sequence._startInteger) 
+                                        ? (this.sequence._headSegment, this.sequence._headInteger) 
                                         : (this.segment.Next, 0);
-            this.to = (this.segment == this.sequence._endSegment) ? this.sequence._endInteger : (this.segment?.Length ?? 0);
+            this.to = (this.segment == this.sequence._tailSegment) ? this.sequence._tailInteger : (this.segment?.Length ?? 0);
 
             return this.segment is not null;
         }

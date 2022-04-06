@@ -31,4 +31,9 @@ public static class UnrolledSequenceExtension
         }
         return false;
     }
+
+    public static bool StartsWith(this UnrolledSequence<char> sequence, string str, StringComparison comparison)
+    {
+        return sequence.StartsWith(str.AsSpan(), comparison);
+    }
 }

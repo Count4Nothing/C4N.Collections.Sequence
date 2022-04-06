@@ -12,40 +12,40 @@ public sealed partial class TextSequenceSource : UnrolledSequenceSource<char>
     {
         this._reader = reader;
         this._pool = new(DefaultUnitMin, DefaultUnitMax);
-        this._startSegment = this._endSegment = null;
-        this._startInteger = this._endInteger = default;
+        this._headSegment = this._tailSegment = null;
+        this._headInteger = this._tailInteger = default;
     }
 
     readonly TextReader _reader;
     SegmentPool _pool;
-    ArrayUnrolledSequenceSegment<char>? _startSegment;
-    int _startInteger;
-    ArrayUnrolledSequenceSegment<char>? _endSegment;
-    int _endInteger;
+    ArrayUnrolledSequenceSegment<char>? _headSegment;
+    int _headInteger;
+    ArrayUnrolledSequenceSegment<char>? _tailSegment;
+    int _tailInteger;
 
     long Buffered
     {
         get
         {
-            var startSegment = this._startSegment;
-            var endSegment = this._endSegment;
-            var startIndex = this._startInteger;
-            var endIndex = this._endInteger;
-            return (endSegment?.TotalIndex - startSegment?.TotalIndex + (endIndex - startIndex)) ?? 0;
+            var headSegment = this._headSegment;
+            var tailSegment = this._tailSegment;
+            var headIndex = this._headInteger;
+            var tailIndex = this._tailInteger;
+            return (tailSegment?.TotalIndex - headSegment?.TotalIndex + (tailIndex - headIndex)) ?? 0;
         }
     }
-    SequencePosition StartPosition => new(this._startSegment, this._startInteger);
-    SequencePosition EndPosition => new(this._endSegment, this._endInteger);
-    bool IsEnd => this._endSegment?.Length > this._endInteger;
+    SequencePosition HeadPosition => new(this._headSegment, this._headInteger);
+    SequencePosition TailPosition => new(this._tailSegment, this._tailInteger);
+    bool IsEnd => this._tailSegment?.Length > this._tailInteger;
 
-    ReadResult<char> ReadBuffer() => new(new(this.StartPosition, this.EndPosition), this.IsEnd);
+    ReadResult<char> ReadBuffer() => new(new(this.HeadPosition, this.TailPosition), this.IsEnd);
     void LoadBuffer(int sizeHint)
     {
         if (this.IsEnd) return;
-        var startSegment = this._startSegment;
-        var endSegment = this._endSegment;
-        var startIndex = this._startInteger;
-        var endIndex = this._endInteger;
+        var headSegment = this._headSegment;
+        var tailSegment = this._tailSegment;
+        var headIndex = this._headInteger;
+        var tailIndex = this._tailInteger;
         var buffered = this.Buffered;
         var pool = this._pool;
 
@@ -53,31 +53,31 @@ public sealed partial class TextSequenceSource : UnrolledSequenceSource<char>
         if (sizeHint <= buffered) return;
         sizeHint -= (int)buffered;
 
-        if (startSegment is null)//when initial load
+        if (headSegment is null)//when initial load
         {
-            startSegment = endSegment = this._pool.Rent(sizeHint);
-            startIndex = endIndex = 0;
+            headSegment = tailSegment = this._pool.Rent(sizeHint);
+            headIndex = tailIndex = 0;
         }
         var reader = this._reader;
 
         while (true)
         {
-            var capacity = endSegment!.Length - endIndex;
-            var written = reader.Read(endSegment.Array, endIndex, capacity);
-            endIndex += Math.Max(0, written);
+            var capacity = tailSegment!.Length - tailIndex;
+            var written = reader.Read(tailSegment.Array, tailIndex, capacity);
+            tailIndex += Math.Max(0, written);
             if (written < capacity) break;
             sizeHint -= written;
             if (sizeHint <= 0) break;
             var segment = pool.Rent(sizeHint);
-            endSegment.Next = segment;
-            endSegment = segment;
-            endIndex = 0;
+            tailSegment.Next = segment;
+            tailSegment = segment;
+            tailIndex = 0;
         }
 
-        this._startSegment = startSegment;
-        this._startInteger = startIndex;
-        this._endSegment = endSegment;
-        this._endInteger = endIndex;
+        this._headSegment = headSegment;
+        this._headInteger = headIndex;
+        this._tailSegment = tailSegment;
+        this._tailInteger = tailIndex;
     }
 
 
@@ -88,32 +88,32 @@ public sealed partial class TextSequenceSource : UnrolledSequenceSource<char>
     }
     public override void Advance(SequencePosition consumed)
     {
-        var startSegment = this._startSegment;
+        var headSegment = this._headSegment;
         var consumedSegment = consumed.GetObject() as UnrolledSequenceSegment<char>;
         var consumedInteger = consumed.GetInteger();
 
-        while (startSegment != consumedSegment)
+        while (headSegment != consumedSegment)
         {
-            if (startSegment is null) ThrowHelper.ThrowArgument($"{nameof(consumed)} is invalid");
-            var next = startSegment!.Next;
-            this._pool.Return(startSegment);
-            startSegment = next as ArrayUnrolledSequenceSegment<char>;
+            if (headSegment is null) Throw.Argument($"{nameof(consumed)} is invalid");
+            var next = headSegment!.Next;
+            this._pool.Return(headSegment);
+            headSegment = next as ArrayUnrolledSequenceSegment<char>;
         }
 
-        this._startSegment = consumedSegment as ArrayUnrolledSequenceSegment<char>;
-        this._startInteger = consumedInteger;
+        this._headSegment = consumedSegment as ArrayUnrolledSequenceSegment<char>;
+        this._headInteger = consumedInteger;
     }
 
     public override void Advance(long consumed)
     {
-        var segment = this._startSegment;
-        var index = this._startInteger;
-        var endSegment = this._endSegment;
-        var endInteger = this._endInteger;
+        var segment = this._headSegment;
+        var index = this._headInteger;
+        var tailSegment = this._tailSegment;
+        var tailInteger = this._tailInteger;
         while (segment is not null)
         {
-            var isEnd = segment == endSegment;
-            var capacity = (isEnd ? endInteger : segment.Length) - index;
+            var isEnd = segment == tailSegment;
+            var capacity = (isEnd ? tailInteger : segment.Length) - index;
             if(consumed <= capacity)
             {
                 index += (int)consumed;
@@ -121,7 +121,7 @@ public sealed partial class TextSequenceSource : UnrolledSequenceSource<char>
             }
             if(isEnd)
             {
-                index = endInteger;
+                index = tailInteger;
                 break;
             }
             consumed -= capacity;
@@ -129,8 +129,8 @@ public sealed partial class TextSequenceSource : UnrolledSequenceSource<char>
             index = 0;
         }
 
-        this._startSegment = segment;
-        this._startInteger = index;
+        this._headSegment = segment;
+        this._headInteger = index;
     }
 
     public override void Dispose() => this._reader.Dispose();
