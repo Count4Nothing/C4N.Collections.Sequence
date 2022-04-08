@@ -31,30 +31,38 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
     {
         var segment = (position.GetObject() as UnrolledSequenceSegment<T>)!;
         var integer = position.GetInteger();
-        var index = delta + integer;
+        var tailSegment = this._tailSegment;
+        var tailInteger = this._tailInteger;
+
         do
         {
-            var last = segment == this._tailSegment;
-            var len = last ? this._tailInteger : segment!.Length;
-            if (index < len) return new(segment, index);
+            var last = ReferenceEquals(segment, tailSegment);
+            var len = (last ? tailInteger : segment!.Length) - integer;
+            if (delta < len) return new(segment, delta);
 
-            index -= len;
+            delta -= len;
             segment = segment!.Next;
-            if (last) break;
+            if (last || segment is null) Throw.Argument(nameof(position));
+            integer = 0;
         }
         while (true);
-
-        return this.Tail;
     }
     private SequencePosition SeekSegment(SequencePosition position, int count)
     {
         var segment = (position.GetObject() as UnrolledSequenceSegment<T>)!;
         var integer = position.GetInteger();
+        var tailSegment = this._tailSegment;
+        var tailInteger = this._tailInteger;
         while (count > 0)
         {
+            if (ReferenceEquals(segment, tailSegment))
+            {
+                integer = tailInteger;
+                break;
+            }
             var next = segment.Next;
-            if (next is null) break;
-            segment = next;
+            if (next is null) Throw.ArgumentOutOfRange(nameof(count));
+            segment = next!;
             integer = 0;
         }
         return new(segment, integer);
@@ -79,15 +87,18 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
     public SequencePosition GetPosition(long position, SequencePosition origin)
     {
         var segment = origin.GetObject() as UnrolledSequenceSegment<T>;
-        if (segment is null) Throw.NullReference(nameof(position));
+        var tailSegment = this._tailSegment;
+        var tailInteger = this._tailInteger;
+        if (segment is null) Throw.Argument(nameof(origin));
         do
         {
             var delta = position - segment!.TotalIndex;
+            if (ReferenceEquals(segment, tailSegment) && delta >= tailInteger) Throw.ArgumentOutOfRange(nameof(position));
             if (delta < segment.Length) return new(segment, (int)delta);
             segment = segment.Next;
+            if (segment is null) Throw.ArgumentOutOfRange(nameof(position));
         }
-        while (segment is not null);
-        return this.Tail;
+        while (true);
     }
 
     public BufferEnumerable EnumerateBuffer() => new(this);
