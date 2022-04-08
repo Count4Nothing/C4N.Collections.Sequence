@@ -25,6 +25,7 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
     public SequencePosition Tail => new(this._tailSegment, this._tailInteger);//exclusive
     public bool IsEmpty => this._headSegment == this._tailSegment && this._headInteger == this._tailInteger;
     public long Length => (this._tailSegment.TotalIndex - this._headSegment.TotalIndex) + (this._tailInteger - this._headInteger);
+    public ReadOnlySpan<T> FirstSpan => this._headSegment.GetBuffer().Slice(this._headInteger);
 
     private SequencePosition Seek(SequencePosition position, int delta)
     {
