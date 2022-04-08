@@ -38,12 +38,12 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
         {
             var last = ReferenceEquals(segment, tailSegment);
             var len = (last ? tailInteger : segment!.Length) - integer;
-            if (delta < len) return new(segment, delta);
+            if (delta < len) return new(segment, delta + integer);
 
             delta -= len;
             segment = segment!.Next;
-            if (last || segment is null) Throw.Argument(nameof(position));
             integer = 0;
+            if (last || segment is null) Throw.Argument(nameof(position));
         }
         while (true);
     }
