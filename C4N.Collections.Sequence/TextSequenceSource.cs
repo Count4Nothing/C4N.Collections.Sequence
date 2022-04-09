@@ -5,13 +5,11 @@ namespace C4N.Collections.Sequence;
 
 public sealed partial class TextSequenceSource : UnrolledSequenceSource<char>
 {
-    static int DefaultUnitMin { get; } = 4096;
-    static int DefaultUnitMax { get; } = 42000;
-
     public TextSequenceSource(TextReader reader)
     {
+        var (unitMin, unitMax) = UnrolledSequenceSource.RecommendedBufferSizeOf<char>();
         this._reader = reader;
-        this._pool = new(DefaultUnitMin, DefaultUnitMax);
+        this._pool = new(unitMin, unitMax);
         this._headSegment = this._tailSegment = null;
         this._headInteger = this._tailInteger = default;
     }

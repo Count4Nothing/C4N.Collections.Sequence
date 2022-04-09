@@ -9,11 +9,22 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
     public static UnrolledSequence<T> Empty => new();
 
     public UnrolledSequence(SequencePosition head, SequencePosition tail)
+        : this((head.GetObject() as UnrolledSequenceSegment<T>)!, head.GetInteger(), (tail.GetObject() as UnrolledSequenceSegment<T>)!, tail.GetInteger())
+    { }
+    public UnrolledSequence(UnrolledSequenceSegment<T> head, int headInteger, UnrolledSequenceSegment<T> tail, int tailInteger)
     {
-        this._headSegment = head.GetObject() as UnrolledSequenceSegment<T> ?? throw new NullReferenceException("Unsupported segment type");
-        this._headInteger = head.GetInteger();
-        this._tailSegment = tail.GetObject() as UnrolledSequenceSegment<T> ?? throw new NullReferenceException("Unsupported segment type");
-        this._tailInteger = tail.GetInteger();
+        this._headSegment = head ?? throw new NullReferenceException("Unsupported segment type");
+        this._headInteger = headInteger;
+        this._tailSegment = tail ?? throw new NullReferenceException("Unsupported segment type");
+        this._tailInteger = tailInteger;
+    }
+    public UnrolledSequence(T[] array, int start, int length)
+    {
+        var segment = new ArrayUnrolledSequenceSegment<T>(array); 
+        this._headSegment = segment;
+        this._headInteger = start;
+        this._tailInteger = length;
+        this._tailSegment = segment;
     }
 
     readonly UnrolledSequenceSegment<T> _headSegment;
@@ -25,7 +36,7 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
     public SequencePosition Tail => new(this._tailSegment, this._tailInteger);//exclusive
     public bool IsEmpty => this._headSegment == this._tailSegment && this._headInteger == this._tailInteger;
     public long Length => (this._tailSegment.TotalIndex - this._headSegment.TotalIndex) + (this._tailInteger - this._headInteger);
-    public ReadOnlySpan<T> FirstSpan => this._headSegment.GetBuffer().Slice(this._headInteger);
+    public ReadOnlySpan<T> FirstSpan => this._headSegment.GetBuffer(this._headInteger);
 
     private SequencePosition Seek(SequencePosition position, int delta)
     {
@@ -103,6 +114,8 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
 
     public BufferEnumerable EnumerateBuffer() => new(this);
     public IndexedEnumerable EnumerateIndexed() => new(this);
+    public ElementEnumerable EnumerateElement() => new(this);
+    public SegmentEnumerable EnumerateSegment() => new(this);
     public Enumerator GetEnumerator() => new(this);
 
     IEnumerator<ReadOnlyMemory<T>> IEnumerable<ReadOnlyMemory<T>>.GetEnumerator() => this.GetEnumerator();

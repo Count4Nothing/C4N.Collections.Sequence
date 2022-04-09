@@ -1,12 +1,14 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace C4N.Collections.Sequence;
 
 public readonly partial struct UnrolledSequence<T>
 {
-    public readonly struct BufferEnumerable 
+    public readonly struct SegmentEnumerable : IEnumerable<ReadOnlyUnrolledSequenceSegment<T>>
     {
-        public struct Enumerator
+        public struct Enumerator : IEnumerator<ReadOnlyUnrolledSequenceSegment<T>>
         {
             public Enumerator(UnrolledSequence<T> sequence)
             {
@@ -20,7 +22,8 @@ public readonly partial struct UnrolledSequence<T>
             UnrolledSequenceSegment<T>? segment;
             int from, to;
 
-            public ReadOnlySpan<T> Current => this.segment!.GetBuffer(this.from, this.to - this.from);
+            public ReadOnlyUnrolledSequenceSegment<T> Current => new(this.segment!, this.from, this.to - this.from);
+            object IEnumerator.Current => this.Current;
 
             public bool MoveNext()
             {
@@ -35,13 +38,15 @@ public readonly partial struct UnrolledSequence<T>
             public void Reset() => throw new NotSupportedException();
         }
 
-        public BufferEnumerable(UnrolledSequence<T> sequence)
+        public SegmentEnumerable(UnrolledSequence<T> sequence)
         {
             this.sequence = sequence;
         }
 
-        private readonly UnrolledSequence<T> sequence;
+        readonly UnrolledSequence<T> sequence;
 
-        public Enumerator GetEnumerator() => new (this.sequence);
+        public Enumerator GetEnumerator() => new(this.sequence);
+        IEnumerator<ReadOnlyUnrolledSequenceSegment<T>> IEnumerable<ReadOnlyUnrolledSequenceSegment<T>>.GetEnumerator() => this.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
     }
 }
