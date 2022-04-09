@@ -13,6 +13,8 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
     { }
     public UnrolledSequence(UnrolledSequenceSegment<T> head, int headInteger, UnrolledSequenceSegment<T> tail, int tailInteger)
     {
+        if (head.TotalIndex - tail.TotalIndex > tailInteger - headInteger) Throw.Argument("tail must be greater than or equal to head.");
+
         this._headSegment = head ?? throw new NullReferenceException("Unsupported segment type");
         this._headInteger = headInteger;
         this._tailSegment = tail ?? throw new NullReferenceException("Unsupported segment type");
@@ -20,7 +22,7 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
     }
     public UnrolledSequence(T[] array, int start, int length)
     {
-        var segment = new ArrayUnrolledSequenceSegment<T>(array); 
+        var segment = new ArrayUnrolledSequenceSegment<T>(array);
         this._headSegment = segment;
         this._headInteger = start;
         this._tailInteger = length;
@@ -38,7 +40,7 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
     public long Length => (this._tailSegment.TotalIndex - this._headSegment.TotalIndex) + (this._tailInteger - this._headInteger);
     public ReadOnlySpan<T> FirstSpan => this._headSegment.GetBuffer(this._headInteger);
 
-    private SequencePosition Seek(SequencePosition position, int delta)
+    private SequencePosition Seek(SequencePosition position, long delta)
     {
         var segment = (position.GetObject() as UnrolledSequenceSegment<T>)!;
         var integer = position.GetInteger();
@@ -49,7 +51,7 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
         {
             var last = ReferenceEquals(segment, tailSegment);
             var len = (last ? tailInteger : segment!.Length) - integer;
-            if (delta < len) return new(segment, delta + integer);
+            if (delta < len) return new(segment, (int)(delta + integer));
 
             delta -= len;
             segment = segment!.Next;
@@ -79,13 +81,18 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
         return new(segment, integer);
     }
 
-    public UnrolledSequence<T> Slice(int index) => new(this.Seek(this.Head, index), this.Tail);
-    public UnrolledSequence<T> Slice(int index, int length)
+    public UnrolledSequence<T> Slice(SequencePosition head) => new(head, this.Tail);
+    public UnrolledSequence<T> Slice(SequencePosition head, SequencePosition tail) => new(head, tail);
+    public UnrolledSequence<T> Slice(SequencePosition head, long length) => new(head, this.Seek(head, length));
+    public UnrolledSequence<T> Slice(long index) => new(this.Seek(this.Head, index), this.Tail);
+    public UnrolledSequence<T> Slice(long index, long length)
     {
         var start = this.Seek(this.Head, index);
         var end = this.Seek(start, length);
         return new(start, end);
     }
+    public UnrolledSequence<T> Slice(long index, SequencePosition tail) => new(this.Seek(this.Head, index), tail);
+
     public UnrolledSequence<T> SliceSegment(int count) => new(this.SeekSegment(this.Head, count), this.Tail);
 
     public long GetIndex(SequencePosition position)
@@ -95,7 +102,7 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
         if (segment is null) Throw.NullReference(nameof(position));
         return segment!.TotalIndex + index;
     }
-    public SequencePosition GetPosition(long position, SequencePosition origin)
+    public SequencePosition GetPosition(long index, SequencePosition origin)
     {
         var segment = origin.GetObject() as UnrolledSequenceSegment<T>;
         var tailSegment = this._tailSegment;
@@ -103,14 +110,15 @@ public readonly partial struct UnrolledSequence<T> : IEnumerable<ReadOnlyMemory<
         if (segment is null) Throw.Argument(nameof(origin));
         do
         {
-            var delta = position - segment!.TotalIndex;
-            if (ReferenceEquals(segment, tailSegment) && delta >= tailInteger) Throw.ArgumentOutOfRange(nameof(position));
+            var delta = index - segment!.TotalIndex;
+            if (ReferenceEquals(segment, tailSegment) && delta >= tailInteger) Throw.ArgumentOutOfRange(nameof(index));
             if (delta < segment.Length) return new(segment, (int)delta);
             segment = segment.Next;
-            if (segment is null) Throw.ArgumentOutOfRange(nameof(position));
+            if (segment is null) Throw.ArgumentOutOfRange(nameof(index));
         }
         while (true);
     }
+    public SequencePosition GetPosition(long index) => this.GetPosition(index, this.Head);
 
     public BufferEnumerable EnumerateBuffer() => new(this);
     public IndexedEnumerable EnumerateIndexed() => new(this);
